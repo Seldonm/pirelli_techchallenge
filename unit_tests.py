@@ -30,12 +30,12 @@ class Test(unittest.TestCase):
     def test_build_features(self):
         
         expectedRes = pd.DataFrame([{
-            "timestamp": "2020-11-01T01:30:00",
+            "timestamp": "2020-11-01T01:00:00",
             "machine_id": "m1",
-            "batch_id": "b3",
+            "arepa_type": "a1",
             "metric_1": 0.1282,
             "metric_2": 0.8135,
-            "arepa_type": "a1"}])
+            }])
         
         expectedRes.index = expectedRes['timestamp']
         expectedRes.drop('timestamp', axis=1, inplace=True)
@@ -43,5 +43,8 @@ class Test(unittest.TestCase):
         start_date = "2020-11-01T00:23:34"
         end_date = "2020-11-01T02:23:33"
         res = build_features(self.cooking_metrics, self.batch_registry, self.faulty_intervals, start_date, end_date)
+        
+        print(res)
+        print(expectedRes)
         
         self.assertTrue(res.equals(expectedRes), 'error in build features')

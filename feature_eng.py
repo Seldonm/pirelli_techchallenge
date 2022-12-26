@@ -47,10 +47,10 @@ def build_features(cooking_metrics, batch_registry, faulty_intervals, start_date
         return pd.DataFrame()
     
     metrics = metrics.merge(batch_registry, on='batch_id')
-    metrics = metrics.loc[(metrics['arepa_type'] == AREPA_TYPE) & (metrics['machine_id'] == MACHINE_ID)]
     with_faulty = metrics.merge(faulty_intervals, on='machine_id')    
     with_faulty['faulty'] = (with_faulty['timestamp'].between(with_faulty['start_time'], with_faulty['end_time'])).astype(int)
     aggr_dict = {
+        'timestamp': 'first',
         'machine_id': 'first',
         'batch_id': 'first',
         'metric_1': 'first',
@@ -59,15 +59,19 @@ def build_features(cooking_metrics, batch_registry, faulty_intervals, start_date
         'faulty': 'sum'
     }
     
-    no_faulty = with_faulty.groupby('timestamp') \
-            .agg(aggr_dict) \
-            .query("faulty == 0") \
-            .drop('faulty', axis=1)
+    no_faulty = with_faulty.groupby(['timestamp', 'machine_id', 'batch_id']).agg(aggr_dict).query("faulty == 0").drop('faulty', axis=1)
+    
+    no_faulty = no_faulty.reset_index(drop=True)
+    no_faulty.set_index('timestamp', inplace=True)
+    
+    no_faulty = no_faulty.groupby(['machine_id', 'arepa_type']).resample('H').mean(numeric_only=True).reset_index()
 
-    no_faulty.groupby(['timestamp', 'machine_id', 'batch_id', 'arepa_type']).resample('H').mean(numeric_only=True)
+    no_faulty.set_index('timestamp', inplace=True)
     
     if (no_faulty.shape[0] > 0):
         no_faulty.index = no_faulty.index.strftime("%Y-%m-%dT%H:%M:%S")
+        no_faulty = no_faulty.loc[(no_faulty['arepa_type'] == AREPA_TYPE) & (no_faulty['machine_id'] == MACHINE_ID)]
+        
         return no_faulty
     else:
         print("No features available for the specified date range")
@@ -87,15 +91,11 @@ def write_results(results: pd.DataFrame, start_date: datetime, end_date: datetim
     
 if __name__ == "__main__":
     args = parser.parse_args()
-    print("Loading datasets...")
     cooking_metrics = load_dataset(filename=f"{SOURCE_PATH}/cooking_metrics.csv", parse_dates=['timestamp'])
     batch_registry = load_dataset(filename=f"{SOURCE_PATH}/batch_registry.csv")
     faulty_intervals = load_dataset(filename=f"{SOURCE_PATH}/faulty_intervals.csv", parse_dates=['start_time', 'end_time'])
-    print("done.")
-    print("Building features...")
     result = build_features(cooking_metrics, batch_registry, faulty_intervals, args.start_date, args.end_date)
-    print("done.")
+    
     if not (result.empty):
-        print("Writing features...")
         write_results(result, args.start_date, args.end_date)
-        print("done.")
+    
