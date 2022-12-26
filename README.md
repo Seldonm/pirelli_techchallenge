@@ -47,6 +47,10 @@ python unit_tests.py
 
 ## Roadmap
 
+In the next release, training must be scaled to consider all the machines in all the kitchens associated to phase 1, but reduced to a list of arepa types given in a text file. Thus, we need to apply the following refactoring tasks:
+
+* provide the location of the arepa list file as user input
+* Modify the *build_features()* function in order to take 
 
 
 ## Authors
