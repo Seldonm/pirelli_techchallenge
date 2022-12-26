@@ -1,12 +1,9 @@
 import unittest
 import pandas as pd
-from feature_eng import valid_date, load_dataset, build_features, filter_input_date
+from feature_eng import load_dataset, build_features, filter_input_date
 
 def run_test(tcls):
-    """
-    Runs unit tests from a test class
-    :param tcls: A class, derived from unittest.TestCase
-    """
+    
     suite = unittest.TestLoader().loadTestsFromTestCase(tcls)
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
@@ -27,8 +24,9 @@ class Test(unittest.TestCase):
         res = filter_input_date(self.cooking_metrics, start_date, end_date)
         self.assertTrue(res.empty, 'wrong filter')
     
-    def test_build_features(self):
+    def test_build_features_m1_a1(self):
         
+        # Arrange
         expectedRes = pd.DataFrame([{
             "timestamp": "2020-11-01T01:00:00",
             "machine_id": "m1",
@@ -39,12 +37,14 @@ class Test(unittest.TestCase):
         
         expectedRes.index = expectedRes['timestamp']
         expectedRes.drop('timestamp', axis=1, inplace=True)
-        
+        MACHINE_ID = "m1"
+        AREPA_TYPE = "a1"
         start_date = "2020-11-01T00:23:34"
         end_date = "2020-11-01T02:23:33"
-        res = build_features(self.cooking_metrics, self.batch_registry, self.faulty_intervals, start_date, end_date)
         
-        print(res)
-        print(expectedRes)
+        #Act
+        filtered = filter_input_date(self.cooking_metrics, start_date, end_date)
+        res = build_features(filtered, self.batch_registry, self.faulty_intervals, MACHINE_ID, AREPA_TYPE)
         
+        #Assert
         self.assertTrue(res.equals(expectedRes), 'error in build features')

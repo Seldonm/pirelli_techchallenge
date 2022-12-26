@@ -1,8 +1,19 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# =============================================================================
+# Author  : Mauro Losciale
+# Email: losciale.mauro@gmail.com
+# Version: 1.0.0
+# =============================================================================
+"""Script for feature engineering """
+# =============================================================================
+# Imports
 import pandas as pd
 import argparse
 from datetime import datetime
 import os
 
+# =============================================================================
 def valid_date(s):
     try:
         return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
@@ -38,16 +49,15 @@ def filter_input_date(cooking_metrics: pd.DataFrame, start_date: str, end_date: 
     else:
         return metrics
         
-def build_features(cooking_metrics, batch_registry, faulty_intervals, start_date, end_date) -> pd.DataFrame:
-    
-    metrics = filter_input_date(cooking_metrics, start_date, end_date)
-    
+def build_features(metrics, batch_registry, faulty_intervals, machine_id: str=None, arepa_type: str=None) -> pd.DataFrame:
+        
     if (metrics.empty):
         print("No rows available for the specified date range")
-        return pd.DataFrame()
+        return pd.DataFrame()  
     
-    metrics = metrics.merge(batch_registry, on='batch_id')
-    with_faulty = metrics.merge(faulty_intervals, on='machine_id')    
+    with_faulty = metrics.merge(batch_registry, on='batch_id') \
+                        .merge(faulty_intervals, on='machine_id')
+                        
     with_faulty['faulty'] = (with_faulty['timestamp'].between(with_faulty['start_time'], with_faulty['end_time'])).astype(int)
     aggr_dict = {
         'timestamp': 'first',
@@ -59,20 +69,30 @@ def build_features(cooking_metrics, batch_registry, faulty_intervals, start_date
         'faulty': 'sum'
     }
     
-    no_faulty = with_faulty.groupby(['timestamp', 'machine_id', 'batch_id']).agg(aggr_dict).query("faulty == 0").drop('faulty', axis=1)
+    no_faulty = with_faulty.groupby(['timestamp', 'machine_id', 'batch_id']) \
+                    .agg(aggr_dict) \
+                    .query("faulty == 0") \
+                    .drop('faulty', axis=1) \
+                    .reset_index(drop=True) \
+                    .set_index('timestamp')
     
-    no_faulty = no_faulty.reset_index(drop=True)
-    no_faulty.set_index('timestamp', inplace=True)
-    
-    no_faulty = no_faulty.groupby(['machine_id', 'arepa_type']).resample('H').mean(numeric_only=True).reset_index()
+    h_sampled = no_faulty.groupby(['machine_id', 'arepa_type']) \
+                    .resample('H') \
+                    .mean(numeric_only=True) \
+                    .reset_index()
 
-    no_faulty.set_index('timestamp', inplace=True)
+    h_sampled.set_index('timestamp', inplace=True)
     
-    if (no_faulty.shape[0] > 0):
-        no_faulty.index = no_faulty.index.strftime("%Y-%m-%dT%H:%M:%S")
-        no_faulty = no_faulty.loc[(no_faulty['arepa_type'] == AREPA_TYPE) & (no_faulty['machine_id'] == MACHINE_ID)]
+    if (h_sampled.shape[0] > 0):
+        h_sampled.index = h_sampled.index.strftime("%Y-%m-%dT%H:%M:%S")
         
-        return no_faulty
+        if not (machine_id) == None:
+            h_sampled = h_sampled.loc[h_sampled['machine_id'] == MACHINE_ID]
+            
+        if not (arepa_type) == None:
+            h_sampled = h_sampled.loc[h_sampled['arepa_type'] == AREPA_TYPE]
+        
+        return h_sampled
     else:
         print("No features available for the specified date range")
         return pd.DataFrame()
@@ -94,7 +114,9 @@ if __name__ == "__main__":
     cooking_metrics = load_dataset(filename=f"{SOURCE_PATH}/cooking_metrics.csv", parse_dates=['timestamp'])
     batch_registry = load_dataset(filename=f"{SOURCE_PATH}/batch_registry.csv")
     faulty_intervals = load_dataset(filename=f"{SOURCE_PATH}/faulty_intervals.csv", parse_dates=['start_time', 'end_time'])
-    result = build_features(cooking_metrics, batch_registry, faulty_intervals, args.start_date, args.end_date)
+    
+    filtered = filter_input_date(cooking_metrics, args.start_date, args.end_date)
+    result = build_features(cooking_metrics, batch_registry, faulty_intervals)
     
     if not (result.empty):
         write_results(result, args.start_date, args.end_date)
