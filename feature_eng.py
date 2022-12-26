@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description="Feature engineering")
 parser.add_argument("start_date", type=valid_date, help="Start date")
 parser.add_argument("end_date",  type=valid_date, help="End date")
 
-MACHINE_ID = "m1"
-AREPA_TYPE = "a1"
+#MACHINE_ID = "m1"
+#AREPA_TYPE = "a1"
 OUTPUT_ROOT = "outputs/phase1"
 KITCHEN_ID = "k1"
 PHASE_ID = "phase1"
@@ -87,17 +87,17 @@ def build_features(metrics, batch_registry, faulty_intervals, machine_id: str=No
         h_sampled.index = h_sampled.index.strftime("%Y-%m-%dT%H:%M:%S")
         
         if not (machine_id) == None:
-            h_sampled = h_sampled.loc[h_sampled['machine_id'] == MACHINE_ID]
+            h_sampled = h_sampled.loc[h_sampled['machine_id'] == machine_id]
             
         if not (arepa_type) == None:
-            h_sampled = h_sampled.loc[h_sampled['arepa_type'] == AREPA_TYPE]
+            h_sampled = h_sampled.loc[h_sampled['arepa_type'] == arepa_type]
         
         return h_sampled
     else:
         print("No features available for the specified date range")
         return pd.DataFrame()
     
-def write_results(results: pd.DataFrame, start_date: datetime, end_date: datetime):
+def write_results(results: pd.DataFrame, start_date: datetime, end_date: datetime, machine_id: str=None, arepa_type: str=None):
     st_date = start_date.strftime("%Y%m%dT%H%M%S")
     ed_date = end_date.strftime("%Y%m%dT%H%M%S")
     OUTPUT_ROOT = f"outputs/{PHASE_ID}"
@@ -107,17 +107,26 @@ def write_results(results: pd.DataFrame, start_date: datetime, end_date: datetim
     if not os.path.exists(outpath):
         os.makedirs(outpath)
         
-    results.to_csv(f"{outpath}/{KITCHEN_ID}_{MACHINE_ID}_{AREPA_TYPE}.csv")
+    if not (machine_id) == None and not (arepa_type) == None:
+        results.to_csv(f"{outpath}/{KITCHEN_ID}_{machine_id}_{arepa_type}.csv")
+    elif not (machine_id) == None:
+        results.to_csv(f"{outpath}/{KITCHEN_ID}_{machine_id}_all_arepas.csv")
+    else:
+        results.to_csv(f"{outpath}/{KITCHEN_ID}_all_machines_{arepa_type}.csv")
     
 if __name__ == "__main__":
+    
+    MACHINE_ID = "m1"
+    AREPA_TYPE = "a1"  
+    
     args = parser.parse_args()
     cooking_metrics = load_dataset(filename=f"{SOURCE_PATH}/cooking_metrics.csv", parse_dates=['timestamp'])
     batch_registry = load_dataset(filename=f"{SOURCE_PATH}/batch_registry.csv")
     faulty_intervals = load_dataset(filename=f"{SOURCE_PATH}/faulty_intervals.csv", parse_dates=['start_time', 'end_time'])
     
     filtered = filter_input_date(cooking_metrics, args.start_date, args.end_date)
-    result = build_features(cooking_metrics, batch_registry, faulty_intervals)
+    result = build_features(cooking_metrics, batch_registry, faulty_intervals, MACHINE_ID, AREPA_TYPE)
     
     if not (result.empty):
-        write_results(result, args.start_date, args.end_date)
+        write_results(result, args.start_date, args.end_date, MACHINE_ID, AREPA_TYPE)
     
