@@ -25,8 +25,6 @@ parser = argparse.ArgumentParser(description="Feature engineering")
 parser.add_argument("start_date", type=valid_date, help="Start date")
 parser.add_argument("end_date",  type=valid_date, help="End date")
 
-#MACHINE_ID = "m1"
-#AREPA_TYPE = "a1"
 OUTPUT_ROOT = "outputs/phase1"
 KITCHEN_ID = "k1"
 PHASE_ID = "phase1"
